@@ -1,0 +1,134 @@
+//a sketch to release one ball at a time for a rube goldberg machine
+#include <AccelStepper.h>
+
+AccelStepper stepper(1, 9, 8); // use functions to step
+
+const byte switchPin = 2;
+const byte gate1 = 4; //the drop gate
+const byte gate2 = 5; //the chamber gate
+const byte ledPin = 6; //the LED pin
+const byte reversePin = 8; pin to select the direction of the motor
+//int delayTime = 1000;
+
+unsigned long previousMillisStart = 0;
+unsigned long previousMillisGate1 = 0;
+unsigned long previousMillisGate2 = 0;
+unsigned long previousMillisLightBox = 0;
+unsigned long previousMillisMotor = 0;
+
+unsigned long gate1TurnedOnAt; //when was the DROP gate turned on
+unsigned long gate2TurnedOnAt; //when was the CHAMBER gate turned on
+//unsigned long LightboxTurnedOnAt; // when was the lightbox turned on
+
+long gate1OnDelay = 250; //on delay time for the first gate
+long gate1OffDelay = 1000; //off delay time for the gate, 1 second
+long gate2OnDelay = 1250; //on time for the second gate.  1.1 seconds after first gate
+long gate2OffDelay = 1000; //off time for the second gate, 1 second later
+long lightBoxInterval = 500; //blink the light box every 1/2 second
+long motorInterval = 5000;
+long programRunningInterval = 10000; //interval for the entire program, 10 seconds
+
+bool gate1Ready; //DROP gate ready bit
+bool gate1State; //DROP gate state bit
+bool gate2Ready; //CHAMBER gate ready bit
+bool gate2State; //CHAMBER gate state bit
+bool ledState = 100; // LED state variable
+bool motorState;
+bool programRunning; //a control bit for the entire program
+
+void setup() {
+  // put your setup code here, to run once:
+
+  pinMode (gate1, OUTPUT);
+  pinMode (gate2, OUTPUT);
+  pinMode (ledPin, OUTPUT);
+  pinMode (switchPin, INPUT_PULLUP);
+
+   stepper.setMaxSpeed(700);  
+   stepper.setCurrentPosition(0);
+   stepper.setSpeed(700);
+
+}
+
+void loop() {
+  // put your main code here, to run repeatedly:
+  
+  //set the proper time every time through the loop
+  unsigned long currentMillis = millis(); // current millis = how long arduino has been running
+
+  //read the input of the start button
+  if (digitalRead(switchPin) == LOW && programRunning !=true){
+    previousMillisStart = currentMillis;
+    previousMillisGate1 = currentMillis;
+    previousMillisGate2 = currentMillis;
+    previousMillisMotor = currentMillis;
+    previousMillisLightBox = currentMillis;
+    gate1Ready = true;
+    gate2Ready = true;
+    programRunning = true;
+  }
+
+  // set the program running bit LOW after 10 seconds.
+  if ((currentMillis - previousMillisStart >= programRunningInterval) && programRunning == true) {
+    previousMillisStart = currentMillis;
+    gate1Ready = false;
+    gate2Ready = false;
+    programRunning = false;
+    digitalWrite (ledPin, false);
+  }
+  //open the DROP gate for 1 second
+  if (gate1Ready && programRunning == true){
+    if (currentMillis - previousMillisGate1 >= gate1OnDelay){
+      gate1State = true;
+      digitalWrite (gate1, HIGH);
+      gate1TurnedOnAt = currentMillis;
+      gate1Ready = false;
+    }
+  }
+  //close the DROP gate after 1 second
+  if (gate1State && programRunning == true) {
+    if (currentMillis - gate1TurnedOnAt >= gate1OffDelay) {
+      gate1State = false;
+      digitalWrite (gate1, LOW);
+    }
+  }
+//open the CHAMBER gate after the first gate
+  if (gate2Ready && programRunning == true) {
+    if (currentMillis - previousMillisGate2 >=gate2OnDelay){
+      gate2State = true;
+      digitalWrite (gate2, HIGH);
+      gate2TurnedOnAt = currentMillis;
+      gate2Ready = false;
+     }
+   }
+     //close the Chamber gate after 1 second
+  if (gate2State && programRunning == true) {
+    if (currentMillis - gate2TurnedOnAt >= gate2OffDelay) {
+      gate2State = false;
+      digitalWrite (gate2, LOW);
+    }
+  } 
+  //blink the light box if the program is running
+  if (programRunning == true){
+    if (currentMillis - previousMillisLightBox >=lightBoxInterval){
+      previousMillisLightBox = currentMillis;
+
+      //if the lightbox is off, turn it on
+      if (ledState == 0)
+      ledState = 100;
+      else
+      ledState = 0;
+
+      digitalWrite (ledPin, ledState);
+    }
+    
+    if(currentMillis - previousMillisMotor >= motorInterval){
+      previousMillisMotor - currentMillis;
+      stepper.move(500);
+      stepper.runSpeed();
+   // }else{
+      stepper.stop();
+    }
+  }
+  
+ }
